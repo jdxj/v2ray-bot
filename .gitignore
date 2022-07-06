@@ -13,3 +13,7 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+.idea/
+v2ray-bot
+config/v2ray.share
