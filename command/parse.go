@@ -97,7 +97,7 @@ func exportVmess(cmd *cobra.Command, vmesses []*vmess) error {
 	if output == "" {
 		writer = cmd.OutOrStdout()
 	} else {
-		f, err := os.Open(output)
+		f, err := os.OpenFile(output, os.O_CREATE|os.O_RDWR, 0644)
 		if err != nil {
 			return err
 		}
@@ -191,8 +191,9 @@ type vmess struct {
 }
 
 func (v *vmess) Encode() []byte {
-	data, _ := json.Marshal(v)
-	return data
+	data := fmt.Sprintf("v: %s, ps: %s, id: %s, add: %s, port: %d, aid: %s, net: %s, type: %s, host: %s, path: %s, tls: %s",
+		v.V, v.Ps, v.Id, v.Add, v.Port, v.Aid, v.Net, v.Type, v.Host, v.Path, v.Tls)
+	return []byte(data)
 }
 
 func parseVmess(share string) (*vmess, error) {
