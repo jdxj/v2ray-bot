@@ -3,7 +3,9 @@ package command
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestParseFromReader(t *testing.T) {
@@ -21,4 +23,19 @@ func TestParseFromReader(t *testing.T) {
 	for _, v := range result {
 		fmt.Printf("%+v\n", v)
 	}
+}
+
+func TestPrint(t *testing.T) {
+	for {
+		t.Logf("abc")
+
+		time.Sleep(time.Second)
+
+		t.Logf("\r")
+	}
+}
+
+func TestJoinPath(t *testing.T) {
+	res := filepath.Join("ii", "abc")
+	fmt.Printf(res)
 }
