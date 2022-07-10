@@ -191,9 +191,8 @@ type vmess struct {
 }
 
 func (v *vmess) Encode() []byte {
-	data := fmt.Sprintf("v: %s, ps: %s, id: %s, add: %s, port: %d, aid: %s, net: %s, type: %s, host: %s, path: %s, tls: %s",
-		v.V, v.Ps, v.Id, v.Add, v.Port, v.Aid, v.Net, v.Type, v.Host, v.Path, v.Tls)
-	return []byte(data)
+	data, _ := json.Marshal(v)
+	return data
 }
 
 func parseVmess(share string) (*vmess, error) {
