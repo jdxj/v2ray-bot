@@ -109,18 +109,8 @@ func exportVmess(cmd *cobra.Command, vmesses []*vmess) error {
 		writer = f
 	}
 
-	for _, v := range vmesses {
-		_, err := writer.Write(v.Encode())
-		if err != nil {
-			return err
-		}
-
-		_, err = writer.Write([]byte{'\n'})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	encoder := json.NewEncoder(writer)
+	return encoder.Encode(vmesses)
 }
 
 func parseFromFile(filename string) ([]*vmess, error) {
@@ -164,7 +154,6 @@ func parseFromReader(r io.Reader) ([]*vmess, error) {
 	return result, scanner.Err()
 }
 
-// https://github.com/2dust/v2rayN/wiki/%E5%88%86%E4%BA%AB%E9%93%BE%E6%8E%A5%E6%A0%BC%E5%BC%8F%E8%AF%B4%E6%98%8E(ver-2)
 type vmess struct {
 	// 配置文件版本号,主要用来识别当前配置
 	V string `json:"v"`
@@ -175,7 +164,7 @@ type vmess struct {
 	// 地址IP或域名
 	Add string `json:"add"`
 	// 端口号
-	Port int `json:"port"`
+	Port uint32 `json:"port"`
 	// alterId
 	Aid string `json:"aid"`
 	// 传输协议(tcp\kcp\ws\h2\quic)

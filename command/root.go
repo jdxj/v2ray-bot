@@ -1,9 +1,6 @@
 package command
 
 import (
-	"net/http"
-	"net/url"
-
 	"github.com/spf13/cobra"
 )
 
@@ -52,33 +49,13 @@ var rootCmd = &cobra.Command{
 var (
 	output     string
 	nameOutput = "output"
-
-	proxy     string
-	nameProxy = "proxy"
 )
 
 func init() {
 	rootCmd.PersistentFlags().
 		StringVarP(&output, nameOutput, "o", "", "output directory")
-
-	rootCmd.PersistentFlags().
-		StringVar(&proxy, nameProxy, "", "http proxy address")
 }
 
 func rootRun(cmd *cobra.Command, args []string) {
 	cmd.Printf("hello\n")
-}
-
-func getHttpClient() *http.Client {
-	c := &http.Client{}
-	if proxy == "" {
-		return c
-	}
-
-	c.Transport = &http.Transport{
-		Proxy: func(r *http.Request) (*url.URL, error) {
-			return url.Parse(proxy)
-		},
-	}
-	return c
 }
