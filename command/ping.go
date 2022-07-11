@@ -90,14 +90,21 @@ func init() {
 		StringVar(&vmessFile, nameVmessFile, "vmess.txt", "parsed vmess config (parse cmd)")
 }
 
-func getHttpClient() *http.Client {
-	return &http.Client{
-		Transport: &http.Transport{
-			Proxy: func(r *http.Request) (*url.URL, error) {
-				return url.Parse(fmt.Sprintf("http://127.0.0.1:%d", inboundPort))
-			},
+func getHttpClient(httpProxy string) *http.Client {
+	dur, _ := time.ParseDuration(timeout)
+	c := &http.Client{
+		Timeout: dur,
+	}
+	if httpProxy == "" {
+		return c
+	}
+
+	c.Transport = &http.Transport{
+		Proxy: func(r *http.Request) (*url.URL, error) {
+			return url.Parse(httpProxy)
 		},
 	}
+	return c
 }
 
 func getVmessFromFile() ([]*vmess, error) {
@@ -305,7 +312,7 @@ type pingStat struct {
 
 func pingRun(cmd *cobra.Command, args []string) {
 	host := args[0]
-	c := getHttpClient()
+	c := getHttpClient(fmt.Sprintf("http://127.0.0.1:%d", inboundPort))
 	vmesses, err := getVmessFromFile()
 	if err != nil {
 		cmd.PrintErrf("get vmess err: %s", err)
@@ -314,6 +321,7 @@ func pingRun(cmd *cobra.Command, args []string) {
 
 	ins, err := startV2ray()
 	if err != nil {
+		cmd.PrintErrln(err)
 		return
 	}
 	defer ins.Close()

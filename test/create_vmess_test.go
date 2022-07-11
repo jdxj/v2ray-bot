@@ -1,9 +1,14 @@
 package test
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"reflect"
 	"testing"
 	"time"
 
+	"github.com/itchyny/gojq"
 	core "github.com/v2fly/v2ray-core/v5"
 	"github.com/v2fly/v2ray-core/v5/app/dispatcher"
 	"github.com/v2fly/v2ray-core/v5/app/log"
@@ -224,5 +229,33 @@ func TestCreateV2rayByManual(t *testing.T) {
 	if err := ins.Close(); err != nil {
 		t.Fatalf("%s\n", err)
 	}
+}
 
+func TestGojq(t *testing.T) {
+	q, err := gojq.Parse(".[0]")
+	if err != nil {
+		t.Fatalf("%s\n", err)
+	}
+
+	f, err := os.Open("/Users/jdxj/workspace/v2ray-bot/vmess.txt")
+	if err != nil {
+		t.Fatalf("%s\n", err)
+	}
+	defer f.Close()
+
+	var data interface{}
+	decoder := json.NewDecoder(f)
+	err = decoder.Decode(&data)
+	if err != nil {
+		t.Fatalf("%s\n", err)
+	}
+	fmt.Printf("%+v\n", reflect.TypeOf(data))
+	iter := q.Run(data)
+	for {
+		res, ok := iter.Next()
+		if !ok {
+			break
+		}
+		fmt.Printf("%+v\n", res)
+	}
 }

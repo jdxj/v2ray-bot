@@ -9,7 +9,7 @@ func Execute() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:                        "v2raybot",
+	Use:                        "v2ray-bot",
 	Aliases:                    nil,
 	SuggestFor:                 nil,
 	Short:                      "",

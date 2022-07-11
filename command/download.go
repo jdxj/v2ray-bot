@@ -59,6 +59,12 @@ var download = &cobra.Command{
 var (
 	all     bool
 	nameAll = "all"
+
+	proxy     string
+	nameProxy = "proxy"
+
+	timeout     string
+	nameTimeout = "timeout"
 )
 
 func init() {
@@ -66,18 +72,25 @@ func init() {
 
 	download.Flags().
 		BoolVar(&all, nameAll, false, "download the resources listed in the example")
+
+	download.Flags().
+		StringVar(&proxy, nameProxy, "", "http proxy addr")
+
+	download.Flags().
+		StringVar(&timeout, nameTimeout, "30s", "timeout duration")
 }
 
 func downloadRun(cmd *cobra.Command, args []string) {
 	if all {
 		args = append(args, geoIpURL, geoSiteURL)
 	}
-	if len(args) < 1 {
-		cmd.PrintErrln("download requires at least one argument")
+	err := cobra.MinimumNArgs(1)(cmd, args)
+	if err != nil {
+		cmd.PrintErrf("Error: %s\n", err)
 		return
 	}
 
-	c := getHttpClient()
+	c := getHttpClient(proxy)
 	for _, dl := range args {
 		if err := downloadFromURL(c, dl); err != nil {
 			cmd.PrintErrf("download %s err: %s\n", dl, err)
