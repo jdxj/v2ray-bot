@@ -17,7 +17,7 @@ var parse = &cobra.Command{
 	Use:                        "parse",
 	Aliases:                    nil,
 	SuggestFor:                 nil,
-	Short:                      "",
+	Short:                      "parse vmess subscription link",
 	Long:                       "",
 	Example:                    "",
 	ValidArgs:                  nil,

@@ -37,5 +37,5 @@ func TestPrint(t *testing.T) {
 
 func TestJoinPath(t *testing.T) {
 	res := filepath.Join("ii", "abc")
-	fmt.Printf(res)
+	fmt.Println(res)
 }

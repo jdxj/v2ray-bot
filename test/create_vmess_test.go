@@ -32,6 +32,7 @@ import (
 	transHttp "github.com/v2fly/v2ray-core/v5/transport/internet/headers/http"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tcp"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/jdxj/v2ray-bot/config"
@@ -291,7 +292,8 @@ func TestLen(t *testing.T) {
 }
 
 func TestAddOutboundByGrpc(t *testing.T) {
-	c, err := grpc.DialContext(context.Background(), "127.0.0.1:10085", grpc.WithInsecure())
+	c, err := grpc.DialContext(context.Background(), "127.0.0.1:10085",
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("%s\n", err)
 	}

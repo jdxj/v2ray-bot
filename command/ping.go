@@ -25,6 +25,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tcp"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	_ "github.com/v2fly/v2ray-core/v5/app/proxyman/inbound"
@@ -325,7 +326,7 @@ func startV2ray() (*core.Instance, error) {
 }
 
 func getV2ray() (command.HandlerServiceClient, error) {
-	conn, err := grpc.Dial(dokodemoDoorAddr, grpc.WithInsecure())
+	conn, err := grpc.Dial(dokodemoDoorAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
@@ -450,7 +451,7 @@ func pingRun(cmd *cobra.Command, args []string) {
 	} else {
 		v2rayClient, err = getV2ray()
 		if err != nil {
-			cmd.PrintErr("get v2ray err: %s", err)
+			cmd.PrintErrf("get v2ray err: %s", err)
 			return
 		}
 		pingStatsNormal, pingStatsErr, err = pingByExternalV2ray(v2rayClient, pingHost)

@@ -20,10 +20,10 @@ var download = &cobra.Command{
 	Use:        "download",
 	Aliases:    nil,
 	SuggestFor: nil,
-	Short:      "",
+	Short:      "download resource",
 	Long: fmt.Sprintf(`example:
-  download: %s
-  download: %s`, geoIpURL, geoSiteURL),
+  download %s
+  download %s`, geoIpURL, geoSiteURL),
 	Example:                    "",
 	ValidArgs:                  nil,
 	ValidArgsFunction:          nil,
