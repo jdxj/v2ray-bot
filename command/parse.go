@@ -57,6 +57,9 @@ var (
 
 	fromURL     string
 	nameFromURL = "from-url"
+
+	filter     string
+	nameFilter = "filter"
 )
 
 func init() {
@@ -67,6 +70,9 @@ func init() {
 	parse.Flags().
 		StringVar(&fromURL, nameFromURL, "", "parse v2ray share from subscription url")
 	parse.MarkFlagsMutuallyExclusive(nameFromFile, nameFromURL)
+
+	parse.Flags().
+		StringVar(&filter, nameFilter, "", "filter the specified vmess postscript, prefix matching")
 }
 
 func parseRun(cmd *cobra.Command, args []string) {
@@ -83,11 +89,29 @@ func parseRun(cmd *cobra.Command, args []string) {
 }
 
 func tryParseVmess() ([]*vmess, error) {
+	var (
+		vmesses []*vmess
+		err     error
+	)
 	if fromURL != "" {
-		return parseFromURL(fromURL)
+		vmesses, err = parseFromURL(fromURL)
 	} else {
-		return parseFromFile(fromFile)
+		vmesses, err = parseFromFile(fromFile)
 	}
+	if err != nil {
+		return nil, err
+	}
+	if filter == "" {
+		return vmesses, nil
+	}
+
+	var filtered []*vmess
+	for _, v := range vmesses {
+		if strings.Contains(v.Ps, filter) {
+			filtered = append(filtered, v)
+		}
+	}
+	return filtered, nil
 }
 
 func exportVmess(cmd *cobra.Command, vmesses []*vmess) error {
@@ -156,7 +180,7 @@ func parseFromReader(r io.Reader) ([]*vmess, error) {
 type vmess struct {
 	// 配置文件版本号,主要用来识别当前配置
 	V string `json:"v"`
-	// 备注或别名
+	// 备注或别名 postscript
 	Ps string `json:"ps"`
 	// UUID
 	Id string `json:"id"`
