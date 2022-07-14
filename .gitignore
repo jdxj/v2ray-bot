@@ -20,4 +20,4 @@ config/v2ray.share
 geo*
 config/key.go
 tmp/
-vmess*
+*.txt

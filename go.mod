@@ -7,6 +7,7 @@ require (
 	github.com/spf13/cobra v1.5.0
 	github.com/v2fly/v2ray-core/v5 v5.0.7
 	go.uber.org/zap v1.21.0
+	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.0
 )
 
@@ -31,8 +32,9 @@ require (
 	go4.org/intern v0.0.0-20211027215823-ae77deb06f29 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20211027215541-db492cf91b37 // indirect
 	golang.org/x/crypto v0.0.0-20220321153916-2c7772ba3064 // indirect
-	golang.org/x/net v0.0.0-20220325170049-de3da57026de // indirect
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+	golang.org/x/net v0.0.0-20220708220712-1185a9018129 // indirect
+	golang.org/x/sys v0.0.0-20220712014510-0a85c31ab51e // indirect
 	golang.org/x/text v0.3.7 // indirect
+	google.golang.org/genproto v0.0.0-20220712132514-bdd2acd4974d // indirect
 	inet.af/netaddr v0.0.0-20211027220019-c74959edd3b6 // indirect
 )

@@ -1,10 +1,14 @@
 package test
 
 import (
+	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +17,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/app/dispatcher"
 	"github.com/v2fly/v2ray-core/v5/app/log"
 	"github.com/v2fly/v2ray-core/v5/app/proxyman"
+	"github.com/v2fly/v2ray-core/v5/app/proxyman/command"
 	_ "github.com/v2fly/v2ray-core/v5/app/proxyman/inbound"
 	_ "github.com/v2fly/v2ray-core/v5/app/proxyman/outbound"
 	"github.com/v2fly/v2ray-core/v5/app/router"
@@ -26,6 +31,7 @@ import (
 	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	transHttp "github.com/v2fly/v2ray-core/v5/transport/internet/headers/http"
 	"github.com/v2fly/v2ray-core/v5/transport/internet/tcp"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/jdxj/v2ray-bot/config"
@@ -258,4 +264,159 @@ func TestGojq(t *testing.T) {
 		}
 		fmt.Printf("%+v\n", res)
 	}
+}
+
+func TestLen(t *testing.T) {
+	f, err := os.Open("/Users/jdxj/workspace/v2ray-bot/vmess_ps.txt")
+	if err != nil {
+		t.Fatalf("%s\n", err)
+	}
+	defer f.Close()
+
+	r := bufio.NewReader(f)
+	max := 0
+	for {
+		str, err := r.ReadString('\n')
+		if err != nil {
+			t.Logf("%s\n", err)
+			break
+		}
+		str = strings.TrimSuffix(str, "\n")
+
+		fmt.Printf("%-20s %4dms\n", str, rand.Intn(3000))
+
+	}
+	fmt.Printf("max: %d\n", max)
+
+}
+
+func TestAddOutboundByGrpc(t *testing.T) {
+	c, err := grpc.DialContext(context.Background(), "127.0.0.1:10085", grpc.WithInsecure())
+	if err != nil {
+		t.Fatalf("%s\n", err)
+	}
+	client := command.NewHandlerServiceClient(c)
+
+	rsp, err := client.AddOutbound(context.Background(), &command.AddOutboundRequest{
+		Outbound: &core.OutboundHandlerConfig{
+			Tag: "proxy",
+			SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
+				Via: nil,
+				StreamSettings: &internet.StreamConfig{
+					Protocol:     internet.TransportProtocol_TCP,
+					ProtocolName: "tcp",
+					TransportSettings: []*internet.TransportConfig{
+						&internet.TransportConfig{
+							Protocol:     internet.TransportProtocol_TCP,
+							ProtocolName: "tcp",
+							Settings: serial.ToTypedMessage(&tcp.Config{
+								HeaderSettings: serial.ToTypedMessage(&transHttp.Config{
+									Request: &transHttp.RequestConfig{
+										Version: &transHttp.Version{Value: "1.1"},
+										Method:  &transHttp.Method{Value: "GET"},
+										Uri:     []string{"/"},
+										Header: []*transHttp.Header{
+											&transHttp.Header{
+												Name:  "Accept-Encoding",
+												Value: []string{"gzip,deflate"},
+											},
+											&transHttp.Header{
+												Name:  "Connection",
+												Value: []string{"keep-alive"},
+											},
+											&transHttp.Header{
+												Name:  "Host",
+												Value: []string{"xhazsglt5oqpgsyzamn2wojzh.sina.cn"},
+											},
+											&transHttp.Header{
+												Name:  "Pragma",
+												Value: []string{"no-cache"},
+											},
+											&transHttp.Header{
+												Name: "User-Agent",
+												Value: []string{
+													"Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/53.0.2785.143 Safari/537.36",
+													"Mozilla/5.0 (iPhone; CPU iPhone OS 10_0_2 like Mac OS X) AppleWebKit/601.1 (KHTML, like Gecko) CriOS/53.0.2785.109 Mobile/14A456 Safari/601.1.46",
+												},
+											},
+										},
+									},
+									Response: &transHttp.ResponseConfig{
+										Version: nil,
+										Status:  nil,
+										Header: []*transHttp.Header{
+											&transHttp.Header{
+												Name: "Content-Type",
+												Value: []string{
+													"application/octet-stream",
+													"video/mpeg",
+												},
+											},
+											&transHttp.Header{
+												Name:  "Transfer-Encoding",
+												Value: []string{"chunked"},
+											},
+											&transHttp.Header{
+												Name:  "Connection",
+												Value: []string{"keep-alive"},
+											},
+											&transHttp.Header{
+												Name:  "Pragma",
+												Value: []string{"no-cache"},
+											},
+											&transHttp.Header{
+												Name: "Cache-Control",
+												Value: []string{
+													"private",
+													"no-cache",
+												},
+											},
+										},
+									},
+								}),
+								AcceptProxyProtocol: false,
+							}),
+						},
+					},
+					SecurityType:     "",
+					SecuritySettings: nil,
+					SocketSettings:   nil,
+				},
+				ProxySettings:     nil,
+				MultiplexSettings: nil,
+			}),
+			ProxySettings: serial.ToTypedMessage(&outbound.Config{Receiver: []*protocol.ServerEndpoint{
+				&protocol.ServerEndpoint{
+					Address: &net.IPOrDomain{Address: &net.IPOrDomain_Domain{Domain: config.Domain}},
+					Port:    config.Port,
+					User: []*protocol.User{
+						&protocol.User{
+							Level: 0,
+							Email: "",
+							Account: serial.ToTypedMessage(&vmess.Account{
+								Id:               config.Id,
+								AlterId:          0,
+								SecuritySettings: &protocol.SecurityConfig{Type: protocol.SecurityType_AUTO},
+								TestsEnabled:     "",
+							}),
+						},
+					},
+				},
+			}}),
+			Expire:  0,
+			Comment: "",
+		},
+	})
+	if err != nil {
+		t.Fatalf("%s\n", err)
+	}
+	fmt.Printf("%+v\n", rsp)
+
+	//rsp2, err := client.RemoveOutbound(context.Background(), &command.RemoveOutboundRequest{
+	//	Tag: "",
+	//})
+	//if err != nil {
+	//	t.Fatalf("%s\n", err)
+	//}
+	//fmt.Printf("%+v\n", rsp2)
 }

@@ -3,6 +3,7 @@ package command
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,25 +13,33 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	core "github.com/v2fly/v2ray-core/v5"
 	"github.com/v2fly/v2ray-core/v5/app/dispatcher"
 	"github.com/v2fly/v2ray-core/v5/app/log"
 	"github.com/v2fly/v2ray-core/v5/app/proxyman"
-	_ "github.com/v2fly/v2ray-core/v5/app/proxyman/inbound"
-	_ "github.com/v2fly/v2ray-core/v5/app/proxyman/outbound"
+	"github.com/v2fly/v2ray-core/v5/app/proxyman/command"
 	"github.com/v2fly/v2ray-core/v5/app/router"
-	comLog "github.com/v2fly/v2ray-core/v5/common/log"
 	"github.com/v2fly/v2ray-core/v5/common/net"
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
 	"github.com/v2fly/v2ray-core/v5/common/serial"
 	"github.com/v2fly/v2ray-core/v5/features/outbound"
+	"github.com/v2fly/v2ray-core/v5/transport/internet"
+	"github.com/v2fly/v2ray-core/v5/transport/internet/tcp"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/anypb"
+
+	_ "github.com/v2fly/v2ray-core/v5/app/proxyman/inbound"
+	_ "github.com/v2fly/v2ray-core/v5/app/proxyman/outbound"
+
+	core "github.com/v2fly/v2ray-core/v5"
+	comLog "github.com/v2fly/v2ray-core/v5/common/log"
 	coreProxyHttp "github.com/v2fly/v2ray-core/v5/proxy/http"
 	coreProxyVmess "github.com/v2fly/v2ray-core/v5/proxy/vmess"
 	coreProxyVmessOutbound "github.com/v2fly/v2ray-core/v5/proxy/vmess/outbound"
-	"github.com/v2fly/v2ray-core/v5/transport/internet"
 	transHttp "github.com/v2fly/v2ray-core/v5/transport/internet/headers/http"
-	"github.com/v2fly/v2ray-core/v5/transport/internet/tcp"
-	"google.golang.org/protobuf/types/known/anypb"
+)
+
+var (
+	ErrGetVmess = errors.New("get vmess err")
 )
 
 var ping = &cobra.Command{
@@ -73,8 +82,23 @@ var ping = &cobra.Command{
 }
 
 var (
+	externalV2ray     bool
+	nameExternalV2ray = "external-v2ray"
+
+	inboundHost     string
+	nameInboundHost = "inbound-host"
+
 	inboundPort     uint32
 	nameInboundPort = "inbound-port"
+
+	dokodemoDoorAddr     string
+	nameDokodemoDoorAddr = "dokodemo-door-addr"
+
+	setFastest     bool
+	nameSetFastest = "set-fastest"
+
+	outboundTag     string
+	nameOutboundTag = "outbound-tag"
 
 	vmessFile     string
 	nameVmessFile = "vmess-file"
@@ -84,7 +108,22 @@ func init() {
 	rootCmd.AddCommand(ping)
 
 	ping.Flags().
-		Uint32Var(&inboundPort, nameInboundPort, 7891, "port for v2ray http inbound")
+		BoolVar(&externalV2ray, nameExternalV2ray, false, "use external v2ray instance to ping")
+
+	ping.Flags().
+		StringVar(&inboundHost, nameInboundHost, "http://127.0.0.1", "v2ray http inbound listen addr")
+
+	ping.Flags().
+		Uint32Var(&inboundPort, nameInboundPort, 7891, "v2ray http inbound listen port")
+
+	ping.Flags().
+		StringVarP(&dokodemoDoorAddr, nameDokodemoDoorAddr, "A", "127.0.0.1:10085", "dokodemo-door listen addr")
+
+	ping.Flags().
+		BoolVar(&setFastest, nameSetFastest, false, "set the fastest vmess config")
+
+	ping.Flags().
+		StringVar(&outboundTag, nameOutboundTag, "proxy", "use tag to associate inbound and outbound in routing")
 
 	ping.Flags().
 		StringVar(&vmessFile, nameVmessFile, "vmess.txt", "parsed vmess config (parse cmd)")
@@ -118,10 +157,6 @@ func getVmessFromFile() ([]*vmess, error) {
 	decoder := json.NewDecoder(f)
 	return vmesses, decoder.Decode(&vmesses)
 }
-
-const (
-	routingTag = "proxy"
-)
 
 func getV2rayConfig(inboundPort uint32) *core.Config {
 	return &core.Config{
@@ -158,7 +193,7 @@ func getV2rayConfig(inboundPort uint32) *core.Config {
 				DomainStrategy: router.DomainStrategy_IpIfNonMatch,
 				Rule: []*router.RoutingRule{
 					{
-						TargetTag:     &router.RoutingRule_Tag{Tag: routingTag},
+						TargetTag:     &router.RoutingRule_Tag{Tag: outboundTag},
 						InboundTag:    []string{"http"},
 						DomainMatcher: "mph",
 					},
@@ -168,21 +203,9 @@ func getV2rayConfig(inboundPort uint32) *core.Config {
 	}
 }
 
-func startV2ray() (*core.Instance, error) {
-	ins, err := core.New(getV2rayConfig(inboundPort))
-	if err != nil {
-		return nil, fmt.Errorf("new v2ray core err: %s", err)
-	}
-
-	if err := ins.Start(); err != nil {
-		return nil, fmt.Errorf("start v2ray err: %s", err)
-	}
-	return ins, nil
-}
-
-func addOutboundHandler(ins *core.Instance, vmess *vmess) error {
-	outboundConfig := &core.OutboundHandlerConfig{
-		Tag: routingTag,
+func getOutboundHandlerConfig(vmess *vmess) *core.OutboundHandlerConfig {
+	return &core.OutboundHandlerConfig{
+		Tag: outboundTag,
 		SenderSettings: serial.ToTypedMessage(&proxyman.SenderConfig{
 			StreamSettings: &internet.StreamConfig{
 				Protocol:     internet.TransportProtocol_TCP,
@@ -274,24 +297,42 @@ func addOutboundHandler(ins *core.Instance, vmess *vmess) error {
 			},
 		}}),
 	}
+}
 
-	err := core.AddOutboundHandler(ins, outboundConfig)
+func addOutboundHandler(ins *core.Instance, vmess *vmess) error {
+	err := core.AddOutboundHandler(ins, getOutboundHandlerConfig(vmess))
 	if err != nil {
 		return fmt.Errorf("add outbound handler err: %s", err)
 	}
 	return nil
 }
 
-func removeOutboundHandler(ins *core.Instance) error {
+func removeOutboundHandler(ins *core.Instance) {
 	outboundManager := ins.GetFeature(outbound.ManagerType()).(outbound.Manager)
-	err := outboundManager.RemoveHandler(context.Background(), routingTag)
-	if err != nil {
-		return fmt.Errorf("remove handler %s err: %s", routingTag, err)
-	}
-	return nil
+	_ = outboundManager.RemoveHandler(context.Background(), outboundTag)
 }
 
-func tryPing(c *http.Client, host string) (time.Duration, error) {
+func startV2ray() (*core.Instance, error) {
+	ins, err := core.New(getV2rayConfig(inboundPort))
+	if err != nil {
+		return nil, fmt.Errorf("new v2ray core err: %s", err)
+	}
+
+	if err := ins.Start(); err != nil {
+		return nil, fmt.Errorf("start v2ray err: %s", err)
+	}
+	return ins, nil
+}
+
+func getV2ray() (command.HandlerServiceClient, error) {
+	conn, err := grpc.Dial(dokodemoDoorAddr, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	return command.NewHandlerServiceClient(conn), nil
+}
+
+func doPing(c *http.Client, host string) (time.Duration, error) {
 	start := time.Now()
 	rsp, err := c.Get(host)
 	dur := time.Since(start)
@@ -308,54 +349,149 @@ func tryPing(c *http.Client, host string) (time.Duration, error) {
 type pingStat struct {
 	v   *vmess
 	dur time.Duration
+	err error
 }
 
-func pingRun(cmd *cobra.Command, args []string) {
-	host := args[0]
+func pingByInternalV2ray(pingHost string) ([]pingStat, []pingStat, error) {
 	c := getHttpClient(fmt.Sprintf("http://127.0.0.1:%d", inboundPort))
 	vmesses, err := getVmessFromFile()
 	if err != nil {
-		cmd.PrintErrf("get vmess err: %s", err)
-		return
+		return nil, nil, fmt.Errorf("%w: %s", ErrGetVmess, err)
 	}
 
 	ins, err := startV2ray()
 	if err != nil {
-		cmd.PrintErrln(err)
-		return
+		return nil, nil, err
 	}
 	defer ins.Close()
 
-	var pingStats []pingStat
+	var (
+		pingStatsNormal []pingStat
+		pingStatsErr    []pingStat
+	)
 	for _, v := range vmesses {
 		err := addOutboundHandler(ins, v)
 		if err != nil {
-			cmd.PrintErrln(err)
-			return
+			return nil, nil, err
 		}
 
-		dur, err := tryPing(c, host)
-		if err != nil {
-			cmd.PrintErrf("ping err: %s", err)
-		}
-
-		pingStats = append(pingStats, pingStat{
+		dur, err := doPing(c, pingHost)
+		stat := pingStat{
 			v:   v,
 			dur: dur,
-		})
-
-		err = removeOutboundHandler(ins)
+		}
 		if err != nil {
-			cmd.PrintErrln(err)
+			stat.err = fmt.Errorf("ping err: %s, ps: %s", err, v.Ps)
+			pingStatsErr = append(pingStatsErr, stat)
+		} else {
+			pingStatsNormal = append(pingStatsNormal, stat)
+		}
+
+		removeOutboundHandler(ins)
+	}
+
+	return pingStatsNormal, pingStatsErr, nil
+}
+
+func pingByExternalV2ray(client command.HandlerServiceClient, pingHost string) ([]pingStat, []pingStat, error) {
+	c := getHttpClient(fmt.Sprintf("%s:%d", inboundHost, inboundPort))
+	vmesses, err := getVmessFromFile()
+	if err != nil {
+		return nil, nil, fmt.Errorf("%w: %s", ErrGetVmess, err)
+	}
+
+	var (
+		pingStatsNormal []pingStat
+		pingStatsErr    []pingStat
+		ctx             = context.Background()
+	)
+	for _, v := range vmesses {
+		_, err = client.AddOutbound(ctx, &command.AddOutboundRequest{Outbound: getOutboundHandlerConfig(v)})
+		if err != nil {
+			return nil, nil, err
+		}
+
+		dur, err := doPing(c, pingHost)
+		stat := pingStat{
+			v:   v,
+			dur: dur,
+		}
+		if err != nil {
+			stat.err = fmt.Errorf("ping err: %s, ps: %s", err, v.Ps)
+			pingStatsErr = append(pingStatsErr, stat)
+		} else {
+			pingStatsNormal = append(pingStatsNormal, stat)
+		}
+
+		_, _ = client.RemoveOutbound(context.Background(), &command.RemoveOutboundRequest{Tag: outboundTag})
+	}
+	return pingStatsNormal, pingStatsErr, nil
+}
+
+func setFastestVmess(client command.HandlerServiceClient, v *vmess) error {
+	_, err := client.AddOutbound(context.Background(), &command.AddOutboundRequest{Outbound: getOutboundHandlerConfig(v)})
+	if err != nil {
+		return fmt.Errorf("set fastest err: %s", err)
+	}
+	return nil
+}
+
+func pingRun(cmd *cobra.Command, args []string) {
+	var (
+		pingHost        = args[0]
+		pingStatsNormal []pingStat
+		pingStatsErr    []pingStat
+		err             error
+
+		v2rayClient command.HandlerServiceClient
+	)
+	if !externalV2ray {
+		pingStatsNormal, pingStatsErr, err = pingByInternalV2ray(pingHost)
+	} else {
+		v2rayClient, err = getV2ray()
+		if err != nil {
+			cmd.PrintErr("get v2ray err: %s", err)
 			return
+		}
+		pingStatsNormal, pingStatsErr, err = pingByExternalV2ray(v2rayClient, pingHost)
+	}
+
+	if err != nil {
+		cmd.PrintErrln(err)
+		return
+	}
+
+	sort.Slice(pingStatsNormal, func(i, j int) bool {
+		return pingStatsNormal[i].dur < pingStatsNormal[j].dur
+	})
+
+	if len(pingStatsNormal) != 0 {
+		cmd.Println("normal:")
+		for i, v := range pingStatsNormal {
+			cmd.Printf("%d: %-s %dms\n", i+1, v.v.Ps, v.dur.Milliseconds())
 		}
 	}
 
-	sort.Slice(pingStats, func(i, j int) bool {
-		return pingStats[i].dur < pingStats[j].dur
-	})
+	if len(pingStatsErr) != 0 {
+		cmd.Println("error:")
+		for i, v := range pingStatsErr {
+			cmd.PrintErrf("%d: %-s %s\n", i+1, v.v.Ps, v.err)
+		}
+	}
 
-	for i, v := range pingStats {
-		cmd.Printf("%3d. %-s %4dms\n", i+1, v.v.Ps, v.dur.Milliseconds())
+	if externalV2ray && setFastest {
+		if len(pingStatsNormal) > 0 {
+			fastest := pingStatsNormal[0].v
+			err := setFastestVmess(v2rayClient, fastest)
+			if err != nil {
+				cmd.PrintErrln(err)
+			} else {
+				cmd.Printf("set fastest %s success", fastest.Ps)
+			}
+		} else {
+			cmd.PrintErrln("no available vmess")
+		}
+	} else if !externalV2ray && setFastest {
+		cmd.PrintErrln("can not set internal v2ray")
 	}
 }

@@ -64,10 +64,8 @@ func init() {
 
 	parse.Flags().
 		StringVar(&fromFile, nameFromFile, "v2ray.share", "parse v2ray share from file")
-
 	parse.Flags().
 		StringVar(&fromURL, nameFromURL, "", "parse v2ray share from subscription url")
-
 	parse.MarkFlagsMutuallyExclusive(nameFromFile, nameFromURL)
 }
 
@@ -110,6 +108,7 @@ func exportVmess(cmd *cobra.Command, vmesses []*vmess) error {
 	}
 
 	encoder := json.NewEncoder(writer)
+	encoder.SetIndent("", "  ")
 	return encoder.Encode(vmesses)
 }
 
@@ -177,11 +176,6 @@ type vmess struct {
 	Path string `json:"path"`
 	// 底层传输安全(tls)
 	Tls string `json:"tls"`
-}
-
-func (v *vmess) Encode() []byte {
-	data, _ := json.Marshal(v)
-	return data
 }
 
 func parseVmess(share string) (*vmess, error) {
