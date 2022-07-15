@@ -28,7 +28,7 @@ $ v2ray-bot completion zsh > $(brew --prefix)/share/zsh/site-functions/_v2ray-bo
 
 ### download cmd
 
-`download` cmd is just a convenience method for downloading geo resources.  
+`download` is just a convenience method for downloading geo resources.  
 Download predefined geo resources by specifying the `--all` flag, including
 [geoip.dat](https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat), 
 [geosite.dat](https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat).
@@ -62,9 +62,9 @@ $ v2ray-bot parse --from-file ~/workspace/v2ray-bot/config/v2ray.share --filter 
 
 ### ping cmd
 
-`ping` is a simple way to test latency. Its principle is to send an http get request  
+`ping` is a simple way to test latency. Its principle is to send an http `HEAD` request  
 to the specified domain name. This command needs to specify the vmess configuration  
-file (which can be obtained from parse), and then the sorted results will be output.
+file (which can be obtained from `parse`), and then the sorted results will be output.
 
 ```shell
 $ v2ray-bot ping https://www.google.com --inbound-port 7893

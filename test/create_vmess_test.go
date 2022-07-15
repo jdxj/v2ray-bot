@@ -155,14 +155,14 @@ func TestCreateV2rayByManual(t *testing.T) {
 				}),
 				ProxySettings: serial.ToTypedMessage(&outbound.Config{Receiver: []*protocol.ServerEndpoint{
 					&protocol.ServerEndpoint{
-						Address: &net.IPOrDomain{Address: &net.IPOrDomain_Domain{Domain: config.Domain}},
-						Port:    config.Port,
+						Address: &net.IPOrDomain{Address: &net.IPOrDomain_Domain{Domain: config.V.Add}},
+						Port:    config.V.Port,
 						User: []*protocol.User{
 							&protocol.User{
 								Level: 0,
 								Email: "",
 								Account: serial.ToTypedMessage(&vmess.Account{
-									Id:               config.Id,
+									Id:               config.V.Id,
 									AlterId:          0,
 									SecuritySettings: &protocol.SecurityConfig{Type: protocol.SecurityType_AUTO},
 									TestsEnabled:     "",
@@ -389,14 +389,14 @@ func TestAddOutboundByGrpc(t *testing.T) {
 			}),
 			ProxySettings: serial.ToTypedMessage(&outbound.Config{Receiver: []*protocol.ServerEndpoint{
 				&protocol.ServerEndpoint{
-					Address: &net.IPOrDomain{Address: &net.IPOrDomain_Domain{Domain: config.Domain}},
-					Port:    config.Port,
+					Address: &net.IPOrDomain{Address: &net.IPOrDomain_Domain{Domain: config.V.Add}},
+					Port:    config.V.Port,
 					User: []*protocol.User{
 						&protocol.User{
 							Level: 0,
 							Email: "",
 							Account: serial.ToTypedMessage(&vmess.Account{
-								Id:               config.Id,
+								Id:               config.V.Id,
 								AlterId:          0,
 								SecuritySettings: &protocol.SecurityConfig{Type: protocol.SecurityType_AUTO},
 								TestsEnabled:     "",

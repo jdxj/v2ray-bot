@@ -1,7 +1,7 @@
 package config
 
+import "github.com/jdxj/v2ray-bot/model"
+
 var (
-	Domain string
-	Port   uint32
-	Id     string
+	V = &model.Vmess{}
 )

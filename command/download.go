@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -16,7 +18,7 @@ const (
 	geoSiteURL = "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat"
 )
 
-var download = &cobra.Command{
+var downloadCmd = &cobra.Command{
 	Use:        "download",
 	Aliases:    nil,
 	SuggestFor: nil,
@@ -68,16 +70,33 @@ var (
 )
 
 func init() {
-	rootCmd.AddCommand(download)
+	rootCmd.AddCommand(downloadCmd)
 
-	download.Flags().
+	downloadCmd.Flags().
 		BoolVar(&all, nameAll, false, "download the resources listed in the example")
 
-	download.Flags().
+	downloadCmd.Flags().
 		StringVar(&proxy, nameProxy, "", "http proxy addr")
 
-	download.Flags().
+	downloadCmd.Flags().
 		StringVar(&timeout, nameTimeout, "30s", "timeout duration")
+}
+
+func getHttpClient(httpProxy string) *http.Client {
+	dur, _ := time.ParseDuration(timeout)
+	c := &http.Client{
+		Timeout: dur,
+	}
+	if httpProxy == "" {
+		return c
+	}
+
+	c.Transport = &http.Transport{
+		Proxy: func(r *http.Request) (*url.URL, error) {
+			return url.Parse(httpProxy)
+		},
+	}
+	return c
 }
 
 func downloadRun(cmd *cobra.Command, args []string) {

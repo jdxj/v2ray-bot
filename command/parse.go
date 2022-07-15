@@ -11,9 +11,11 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/jdxj/v2ray-bot/model"
 )
 
-var parse = &cobra.Command{
+var parseCmd = &cobra.Command{
 	Use:                        "parse",
 	Aliases:                    nil,
 	SuggestFor:                 nil,
@@ -63,15 +65,15 @@ var (
 )
 
 func init() {
-	rootCmd.AddCommand(parse)
+	rootCmd.AddCommand(parseCmd)
 
-	parse.Flags().
+	parseCmd.Flags().
 		StringVar(&fromFile, nameFromFile, "v2ray.share", "parse v2ray share from file")
-	parse.Flags().
+	parseCmd.Flags().
 		StringVar(&fromURL, nameFromURL, "", "parse v2ray share from subscription url")
-	parse.MarkFlagsMutuallyExclusive(nameFromFile, nameFromURL)
+	parseCmd.MarkFlagsMutuallyExclusive(nameFromFile, nameFromURL)
 
-	parse.Flags().
+	parseCmd.Flags().
 		StringVar(&filter, nameFilter, "", "filter the specified vmess postscript, prefix matching")
 }
 
@@ -88,9 +90,9 @@ func parseRun(cmd *cobra.Command, args []string) {
 	}
 }
 
-func tryParseVmess() ([]*vmess, error) {
+func tryParseVmess() ([]*model.Vmess, error) {
 	var (
-		vmesses []*vmess
+		vmesses []*model.Vmess
 		err     error
 	)
 	if fromURL != "" {
@@ -105,7 +107,7 @@ func tryParseVmess() ([]*vmess, error) {
 		return vmesses, nil
 	}
 
-	var filtered []*vmess
+	var filtered []*model.Vmess
 	for _, v := range vmesses {
 		if strings.Contains(v.Ps, filter) {
 			filtered = append(filtered, v)
@@ -114,7 +116,7 @@ func tryParseVmess() ([]*vmess, error) {
 	return filtered, nil
 }
 
-func exportVmess(cmd *cobra.Command, vmesses []*vmess) error {
+func exportVmess(cmd *cobra.Command, vmesses []*model.Vmess) error {
 	var writer io.Writer
 	if output == "" {
 		writer = cmd.OutOrStdout()
@@ -136,7 +138,7 @@ func exportVmess(cmd *cobra.Command, vmesses []*vmess) error {
 	return encoder.Encode(vmesses)
 }
 
-func parseFromFile(filename string) ([]*vmess, error) {
+func parseFromFile(filename string) ([]*model.Vmess, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -146,7 +148,7 @@ func parseFromFile(filename string) ([]*vmess, error) {
 	return parseFromReader(f)
 }
 
-func parseFromURL(url string) ([]*vmess, error) {
+func parseFromURL(url string) ([]*model.Vmess, error) {
 	rsp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -156,11 +158,11 @@ func parseFromURL(url string) ([]*vmess, error) {
 	return parseFromReader(rsp.Body)
 }
 
-func parseFromReader(r io.Reader) ([]*vmess, error) {
+func parseFromReader(r io.Reader) ([]*model.Vmess, error) {
 	r = base64.NewDecoder(base64.StdEncoding, r)
 	scanner := bufio.NewScanner(r)
 
-	var result []*vmess
+	var result []*model.Vmess
 	for scanner.Scan() {
 		if scanner.Text() == "" {
 			continue
@@ -177,38 +179,13 @@ func parseFromReader(r io.Reader) ([]*vmess, error) {
 	return result, scanner.Err()
 }
 
-type vmess struct {
-	// 配置文件版本号,主要用来识别当前配置
-	V string `json:"v"`
-	// 备注或别名 postscript
-	Ps string `json:"ps"`
-	// UUID
-	Id string `json:"id"`
-	// 地址IP或域名
-	Add string `json:"add"`
-	// 端口号
-	Port uint32 `json:"port"`
-	// alterId
-	Aid string `json:"aid"`
-	// 传输协议(tcp\kcp\ws\h2\quic)
-	Net string `json:"net"`
-	// 伪装类型(none\http\srtp\utp\wechat-video) *tcp or kcp or QUIC
-	Type string `json:"type"`
-	// 伪装的域名
-	Host string `json:"host"`
-	// path
-	Path string `json:"path"`
-	// 底层传输安全(tls)
-	Tls string `json:"tls"`
-}
-
-func parseVmess(share string) (*vmess, error) {
+func parseVmess(share string) (*model.Vmess, error) {
 	data := strings.TrimPrefix(share, "vmess://")
 	jsonData, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {
 		return nil, err
 	}
 
-	v := &vmess{}
+	v := &model.Vmess{}
 	return v, json.Unmarshal(jsonData, v)
 }
