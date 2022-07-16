@@ -60,7 +60,7 @@ var (
 	fromURL     string
 	nameFromURL = "from-url"
 
-	filter     string
+	filter     []string
 	nameFilter = "filter"
 )
 
@@ -74,7 +74,7 @@ func init() {
 	parseCmd.MarkFlagsMutuallyExclusive(nameFromFile, nameFromURL)
 
 	parseCmd.Flags().
-		StringVar(&filter, nameFilter, "", "filter the specified vmess postscript, prefix matching")
+		StringSliceVar(&filter, nameFilter, nil, "filter the specified vmess postscript, e.g.: k1,k2")
 }
 
 func parseRun(cmd *cobra.Command, args []string) {
@@ -103,14 +103,17 @@ func tryParseVmess() ([]*model.Vmess, error) {
 	if err != nil {
 		return nil, err
 	}
-	if filter == "" {
+	if len(filter) == 0 {
 		return vmesses, nil
 	}
 
 	var filtered []*model.Vmess
 	for _, v := range vmesses {
-		if strings.Contains(v.Ps, filter) {
-			filtered = append(filtered, v)
+		for _, keyword := range filter {
+			if strings.Contains(v.Ps, keyword) {
+				filtered = append(filtered, v)
+				break
+			}
 		}
 	}
 	return filtered, nil
@@ -121,7 +124,7 @@ func exportVmess(cmd *cobra.Command, vmesses []*model.Vmess) error {
 	if output == "" {
 		writer = cmd.OutOrStdout()
 	} else {
-		f, err := os.OpenFile(output, os.O_CREATE|os.O_RDWR, 0644)
+		f, err := os.OpenFile(output, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0644)
 		if err != nil {
 			return err
 		}
