@@ -17,7 +17,8 @@ type Vmess struct {
 	// 端口号
 	Port uint32 `json:"port"`
 	// alterId
-	Aid string `json:"aid"`
+	// 不同订阅会有不同类型, 所以使用 Raw
+	Aid json.RawMessage `json:"aid"`
 	// 传输协议(tcp\kcp\ws\h2\quic)
 	Net string `json:"net"`
 	// 伪装类型(none\http\srtp\utp\wechat-video) *tcp or kcp or QUIC

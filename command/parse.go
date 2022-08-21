@@ -167,28 +167,32 @@ func parseFromReader(r io.Reader) ([]*model.Vmess, error) {
 
 	var result []*model.Vmess
 	for scanner.Scan() {
-		if scanner.Text() == "" {
-			continue
-		}
-
-		v, err := parseVmess(scanner.Text())
+		v, ok, err := parseVmess(scanner.Text())
 		if err != nil {
 			return nil, fmt.Errorf("share: %s, err: %s",
 				scanner.Text(), err)
 		}
-		result = append(result, v)
+		if ok {
+			result = append(result, v)
+		}
 	}
 
 	return result, scanner.Err()
 }
 
-func parseVmess(share string) (*model.Vmess, error) {
-	data := strings.TrimPrefix(share, "vmess://")
+func parseVmess(share string) (*model.Vmess, bool, error) {
+	schema := "vmess://"
+	if !strings.Contains(share, schema) {
+		return nil, false, nil
+	}
+
+	data := strings.TrimPrefix(share, schema)
 	jsonData, err := base64.StdEncoding.DecodeString(data)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	v := &model.Vmess{}
-	return v, json.Unmarshal(jsonData, v)
+	err = json.Unmarshal(jsonData, v)
+	return v, err == nil, err
 }
